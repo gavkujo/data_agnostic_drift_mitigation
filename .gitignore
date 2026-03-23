@@ -1,0 +1,6 @@
+.naisc/
+.github/
+__pycache__/
+data/*
+docs/
+logs/
