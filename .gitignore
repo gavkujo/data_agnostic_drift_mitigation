@@ -4,3 +4,7 @@ __pycache__/
 data/*
 docs/
 logs/
+report_figures/
+.kiro/
+.vscode/
+tests/
