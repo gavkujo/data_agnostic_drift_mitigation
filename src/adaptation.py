@@ -99,6 +99,8 @@ def train_and_adapt(x_tr, x_te, y_train, budget, drift_detected, sample_weights=
     est = _est_fit_time(x_fit, y_fit)
     max_rounds = min(15, max(1, int(budget.remaining() / max(est, 1)) - 1))
     all_scores = [scores.copy()]
+    prev_coverage = 0
+    stale_rounds = 0
 
     for r in range(max_rounds):
         if not budget.can_afford(est):
@@ -106,8 +108,19 @@ def train_and_adapt(x_tr, x_te, y_train, budget, drift_detected, sample_weights=
         pp = scores >= threshold
         pn = scores <= (1 - threshold)
         pm = pp | pn
-        if pm.sum() < 10:
+        coverage = int(pm.sum())
+        if coverage < 10:
             break
+
+        # Coverage stagnation gate: if coverage hasn't grown for 3 rounds,
+        # the model has adapted as much as it can — stop to avoid over-fitting
+        if r >= 3 and coverage <= prev_coverage:
+            stale_rounds += 1
+            if stale_rounds >= 3:
+                break
+        else:
+            stale_rounds = 0
+        prev_coverage = coverage
 
         pseudo_idx = pm.nonzero()[0]
         max_pseudo = TRAIN_CAP - min(n, TRAIN_CAP)
@@ -137,7 +150,7 @@ def train_and_adapt(x_tr, x_te, y_train, budget, drift_detected, sample_weights=
         scores = model.predict_proba(x_te)[:, 1].astype(np.float64)
         all_scores.append(scores.copy())
 
-        # Safety check
+        # Safety: stop if train AU-PRC collapsed (concept drift corruption)
         if tidx is not None:
             check = model.predict_proba(x_tr.iloc[tidx])[:, 1]
             train_auprc = float(average_precision_score(y_train[tidx], check))

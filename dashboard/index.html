@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drift Intelligence — NAISC 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+:root {
+  --bg: #05060b; --surface: #0d0f18; --card: #12141f; --card-hover: #181b28;
+  --border: #1e2235; --border-light: #2a2e45;
+  --text: #eaedf3; --text-secondary: #7c819a; --text-muted: #4e5270;
+  --primary: #7c5cfc; --primary-glow: rgba(124,92,252,0.15);
+  --success: #34d399; --success-glow: rgba(52,211,153,0.12);
+  --danger: #f87171; --danger-glow: rgba(248,113,113,0.12);
+  --warning: #fbbf24;
+  --radius: 14px; --radius-sm: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif; min-height:100vh; }
+
+/* Sidebar */
+.sidebar { position:fixed; left:0; top:0; bottom:0; width:260px; background:var(--surface);
+  border-right:1px solid var(--border); padding:28px 20px; display:flex; flex-direction:column; z-index:10; }
+.sidebar .logo { font-size:15px; font-weight:700; letter-spacing:-0.3px; margin-bottom:4px; }
+.sidebar .logo span { color:var(--primary); }
+.sidebar .subtitle { font-size:11px; color:var(--text-muted); margin-bottom:32px; }
+.sidebar h3 { font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:var(--text-muted); margin:20px 0 10px; font-weight:600; }
+.sidebar .file-input { width:100%; margin-bottom:12px; }
+.sidebar .file-input label { display:block; font-size:11px; color:var(--text-secondary); margin-bottom:4px; font-weight:500; }
+.sidebar .file-input input { width:100%; font-size:11px; color:var(--text); }
+.sidebar .file-input input::file-selector-button {
+  background:var(--card); color:var(--text); border:1px solid var(--border-light);
+  padding:6px 12px; border-radius:var(--radius-sm); font-size:11px; cursor:pointer; margin-right:8px; transition:all 0.2s; }
+.sidebar .file-input input::file-selector-button:hover { background:var(--card-hover); border-color:var(--primary); }
+.run-btn { width:100%; padding:11px; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.25s; margin-top:8px; letter-spacing:0.2px; }
+.run-btn.ready { background:linear-gradient(135deg,var(--primary),#9b7cfc); color:white; }
+.run-btn.ready:hover { transform:translateY(-1px); box-shadow:0 6px 20px var(--primary-glow); }
+.run-btn:disabled { background:var(--card); color:var(--text-muted); cursor:not-allowed; transform:none; box-shadow:none; }
+.status-pill { display:inline-block; padding:4px 10px; border-radius:20px; font-size:10px; font-weight:600; margin-top:12px; }
+.status-pill.idle { background:var(--card); color:var(--text-muted); }
+.status-pill.running { background:rgba(251,191,36,0.12); color:var(--warning); }
+.status-pill.done { background:var(--success-glow); color:var(--success); }
+.status-pill.error { background:var(--danger-glow); color:var(--danger); }
+.sidebar-footer { margin-top:auto; font-size:10px; color:var(--text-muted); }
+
+/* Main content */
+.main { margin-left:260px; padding:28px 32px; }
+
+/* Metric cards */
+.metrics-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; }
+.m-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:18px; transition:all 0.2s; position:relative; overflow:hidden; }
+.m-card:hover { border-color:var(--border-light); transform:translateY(-2px); }
+.m-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--primary); opacity:0; transition:opacity 0.2s; }
+.m-card:hover::before { opacity:1; }
+.m-card .m-label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); font-weight:600; }
+.m-card .m-value { font-size:24px; font-weight:700; margin:6px 0 2px; }
+.m-card .m-sub { font-size:11px; color:var(--text-secondary); }
+
+/* Grid */
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.grid-full { grid-column:1/-1; }
+.panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:22px; }
+.panel h2 { font-size:13px; font-weight:600; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.panel h2 .dot { width:6px; height:6px; border-radius:50%; background:var(--primary); }
+
+/* Tables */
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; padding:10px 12px; font-size:10px; text-transform:uppercase; letter-spacing:0.6px;
+  color:var(--text-muted); font-weight:600; border-bottom:1px solid var(--border); }
+td { padding:10px 12px; font-size:12px; border-bottom:1px solid var(--border); transition:background 0.15s; }
+tr:hover td { background:rgba(124,92,252,0.03); }
+.badge { padding:3px 10px; border-radius:20px; font-size:10px; font-weight:600; }
+.badge-drift { background:var(--danger-glow); color:var(--danger); }
+.badge-ok { background:var(--success-glow); color:var(--success); }
+.badge-concept { background:rgba(168,85,247,0.15); color:#a855f7; }
+.effect-bar { display:flex; align-items:center; gap:6px; }
+.effect-track { flex:1; height:4px; background:var(--border); border-radius:2px; }
+.effect-fill { height:4px; border-radius:2px; background:var(--primary); transition:width 0.4s ease; }
+
+/* Console */
+.console-panel { background:#080a10; border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:14px 16px; font-family:'JetBrains Mono','Fira Code',monospace; font-size:11px;
+  color:var(--text-secondary); max-height:180px; overflow-y:auto; white-space:pre-wrap;
+  display:none; margin-bottom:14px; line-height:1.6; }
+.console-panel.show { display:block; }
+
+/* Empty state */
+.empty { text-align:center; padding:80px 20px; }
+.empty h2 { font-size:20px; font-weight:600; margin-bottom:8px; }
+.empty p { color:var(--text-secondary); font-size:13px; max-width:400px; margin:0 auto; line-height:1.6; }
+.empty .hint { margin-top:20px; font-size:11px; color:var(--text-muted); }
+
+canvas { max-height:250px; }
+.tab { background:none; border:none; color:var(--text-muted); font-size:13px; font-weight:500; padding:10px 20px;
+  cursor:pointer; border-bottom:2px solid transparent; transition:all 0.2s; font-family:inherit; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+@media(max-width:1100px) { .metrics-row{grid-template-columns:repeat(3,1fr);} .grid-2{grid-template-columns:1fr;} }
+@media(max-width:768px) { .sidebar{display:none;} .main{margin-left:0;} }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo"><span>◆</span> Drift Intelligence</div>
+  <div class="subtitle">NAISC 2026 Challenge</div>
+
+  <h3>Data Input</h3>
+  <div class="file-input"><label>Training Data</label><input type="file" id="trainFile" accept=".csv"></div>
+  <div class="file-input"><label>Test Data</label><input type="file" id="testFile" accept=".csv"></div>
+  <button class="run-btn ready" id="runBtn" onclick="runPipeline()">▶ Run Pipeline</button>
+  <div><span class="status-pill idle" id="statusPill">Ready</span></div>
+
+  <div class="sidebar-footer">
+    <div>Pipeline v2.0</div>
+    <div style="margin-top:2px">Per-feature drift typing + self-training</div>
+  </div>
+</aside>
+
+<div class="main">
+  <div id="consolePanel" class="console-panel" style="display:none;"></div>
+
+  <div id="emptyState" class="empty">
+    <h2>Welcome to Drift Intelligence</h2>
+    <p>Upload your training and test CSV files in the sidebar, then click Run Pipeline to start the automated drift detection and mitigation analysis.</p>
+    <div class="hint">Upload CSVs in the sidebar and click Run to begin.</div>
+  </div>
+
+  <div id="results" style="display:none;">
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border);">
+      <button class="tab active" onclick="switchTab('overview',this)">Overview</button>
+      <button class="tab" onclick="switchTab('predictions',this)">All Predictions</button>
+    </div>
+
+    <!-- Overview tab -->
+    <div id="tab-overview">
+      <div class="metrics-row" id="metrics"></div>
+      <div class="grid-2">
+        <div class="panel grid-full"><h2><span class="dot"></span>Drift Severity by Feature</h2><canvas id="driftChart"></canvas></div>
+        <div class="panel"><h2><span class="dot"></span>Pipeline Ablation</h2><canvas id="perfChart"></canvas></div>
+        <div class="panel"><h2><span class="dot"></span>Score Distribution</h2><canvas id="predChart"></canvas></div>
+        <div class="panel grid-full"><h2><span class="dot"></span>Detection & Mitigation Summary</h2>
+          <table><thead><tr><th>Feature</th><th>Type</th><th>Drift</th><th>Effect</th><th>Mitigation</th></tr></thead><tbody id="driftTbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Predictions tab -->
+    <div id="tab-predictions" style="display:none;">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="text" id="predSearch" placeholder="Search Customer ID..." oninput="filterPreds()"
+          style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:var(--radius-sm);font-size:12px;width:260px;outline:none;">
+        <select id="predSort" onchange="filterPreds()" style="background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px;outline:none;">
+          <option value="score-desc">Score: High → Low</option>
+          <option value="score-asc">Score: Low → High</option>
+          <option value="id-asc">ID: A → Z</option>
+        </select>
+        <span id="predCount" style="font-size:11px;color:var(--text-muted);"></span>
+        <button onclick="downloadCSV()" style="margin-left:auto;background:var(--primary);color:white;border:none;padding:7px 16px;border-radius:var(--radius-sm);font-size:11px;font-weight:600;cursor:pointer;">⬇ Download CSV</button>
+      </div>
+      <div class="panel" style="max-height:600px;overflow-y:auto;">
+        <table><thead><tr><th style="width:40%">Customer ID</th><th style="width:25%">Churn Probability</th><th style="width:20%">Risk Level</th><th style="width:15%">Confidence</th></tr></thead>
+        <tbody id="allPredTbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let C={}, allPreds=[];
+function dc(k){if(C[k]){C[k].destroy();delete C[k];}}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-overview').style.display = name==='overview'?'block':'none';
+  document.getElementById('tab-predictions').style.display = name==='predictions'?'block':'none';
+}
+
+function filterPreds() {
+  const q = document.getElementById('predSearch').value.toLowerCase();
+  const sort = document.getElementById('predSort').value;
+  let filtered = allPreds.filter(p => p.id.toLowerCase().includes(q));
+  if (sort==='score-desc') filtered.sort((a,b)=>b.score-a.score);
+  else if (sort==='score-asc') filtered.sort((a,b)=>a.score-b.score);
+  else filtered.sort((a,b)=>a.id.localeCompare(b.id));
+  document.getElementById('predCount').textContent = `${filtered.length} of ${allPreds.length} rows`;
+  renderAllPreds(filtered);
+}
+
+function renderAllPreds(preds) {
+  const tb = document.getElementById('allPredTbody');
+  // Paginate: show max 200 at a time for performance
+  const show = preds.slice(0, 200);
+  tb.innerHTML = show.map(p => {
+    const conf = Math.abs(p.score - 0.5) * 2;
+    const clr = p.score > 0.5 ? 'var(--danger)' : 'var(--success)';
+    const risk = p.score >= 0.7 ? 'High' : p.score >= 0.4 ? 'Medium' : p.score >= 0.15 ? 'Low' : 'Very Low';
+    const riskClr = p.score >= 0.7 ? 'badge-drift' : p.score >= 0.4 ? 'badge-concept' : 'badge-ok';
+    return `<tr>
+      <td><code style="font-size:11px;color:var(--text-secondary)">${p.id}</code></td>
+      <td style="color:${clr};font-weight:600">${p.score.toFixed(4)}</td>
+      <td><span class="badge ${riskClr}">${risk}</span></td>
+      <td><div class="effect-bar"><div class="effect-track"><div class="effect-fill" style="width:${conf*100}%;background:${clr}"></div></div>
+        <span style="font-size:10px;color:var(--text-muted)">${(conf*100).toFixed(0)}%</span></div></td></tr>`;
+  }).join('');
+  if (preds.length > 200) {
+    tb.innerHTML += `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:14px;font-style:italic">Showing 200 of ${preds.length} — use search to filter</td></tr>`;
+  }
+}
+
+function downloadCSV() {
+  if (!allPreds.length) return;
+  const csv = 'CustomerID,probability_score\n' + allPreds.map(p => `${p.id},${p.score}`).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'prediction.csv';
+  a.click();
+}
+
+function runPipeline(){
+  const tr=document.getElementById('trainFile').files[0];
+  const te=document.getElementById('testFile').files[0];
+  if(!tr||!te){alert('Select both CSV files first');return;}
+  const btn=document.getElementById('runBtn'), pill=document.getElementById('statusPill'), con=document.getElementById('consolePanel');
+  btn.disabled=true; btn.className='run-btn';
+  pill.className='status-pill running'; pill.textContent='⏳ Running...';
+  con.style.display='block'; con.textContent='Starting pipeline...\n';
+  const fd=new FormData(); fd.append('train',tr); fd.append('test',te);
+  fetch('/run',{method:'POST',body:fd}).then(r=>r.json()).then(res=>{
+    btn.disabled=false; btn.className='run-btn ready';
+    con.textContent=(res.stdout||'')+(res.stderr?'\n'+res.stderr:'');
+    con.style.display='none';
+    if(res.status==='success'&&res.dashboard_data){
+      pill.className='status-pill done'; pill.textContent='✓ Done '+res.elapsed+'s';
+      show(res.dashboard_data);
+    } else {
+      pill.className='status-pill error'; pill.textContent='✗ Error';
+    }
+  }).catch(()=>{
+    btn.disabled=false; btn.className='run-btn ready';
+    pill.className='status-pill error'; pill.textContent='✗ No server';
+    con.className='console-panel';
+    con.style.display='block';
+    con.textContent='Server not running.\nStart: python dashboard/server.py\nThen refresh.';
+  });
+}
+
+function show(d){
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('results').style.display='block';
+  allPreds = d.predictions || [];
+  metrics(d); drift(d); perf(d); pred(d); driftTbl(d);
+  // Initialize predictions tab
+  document.getElementById('predCount').textContent = `${allPreds.length} rows`;
+  filterPreds();
+}
+
+function metrics(d){
+  document.getElementById('metrics').innerHTML=[
+    {l:'Train Rows',v:(d.n_train||0).toLocaleString(),s:'samples'},
+    {l:'Test Rows',v:(d.n_test||0).toLocaleString(),s:'targets'},
+    {l:'Drift Detected',v:`${d.n_shifted||0} / ${d.n_features||0}`,s:`AUC ${(d.domain_auc||0).toFixed(3)}`},
+    {l:'Test AU-PRC',v:(d.auprc_test||0).toFixed(3),s:`train ${(d.auprc_train||0).toFixed(3)}`},
+    {l:'Runtime',v:`${(d.runtime||0).toFixed(1)}s`,s:'budget 600s'},
+  ].map(i=>`<div class="m-card"><div class="m-label">${i.l}</div><div class="m-value">${i.v}</div><div class="m-sub">${i.s}</div></div>`).join('');
+}
+
+function drift(d){
+  dc('drift');
+  const f=(d.features||[]).sort((a,b)=>b.effect-a.effect);
+  const el=document.getElementById('driftChart');
+  el.parentElement.style.height=Math.max(280,f.length*24+60)+'px';
+  C.drift=new Chart(el,{type:'bar',data:{labels:f.map(x=>x.name),datasets:[{data:f.map(x=>x.effect),
+    backgroundColor:f.map(x=>x.drift_type?.includes('concept')?'rgba(168,85,247,0.7)':'rgba(124,92,252,0.7)'),
+    borderRadius:3,barThickness:14}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4e5270',font:{size:10}}},
+    y:{grid:{display:false},ticks:{color:'#eaedf3',font:{size:11,weight:500}}}}}});
+}
+
+function perf(d){
+  dc('perf');
+  const a=d.ablation||{raw:.723,qmap:.748,tenc:.787,pseudo:d.auprc_test||.893};
+  C.perf=new Chart(document.getElementById('perfChart'),{type:'bar',data:{
+    labels:['Raw','+ Quantile','+ Target Enc','+ Self-Train'],
+    datasets:[{data:[a.raw,a.qmap,a.tenc,a.pseudo],
+    backgroundColor:['rgba(78,82,112,0.5)','rgba(251,191,36,0.6)','rgba(124,92,252,0.6)','rgba(52,211,153,0.7)'],
+    borderRadius:5,barThickness:28}]},
+    options:{responsive:true,plugins:{legend:{display:false}},
+    scales:{y:{min:.6,max:1,grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4e5270'}},
+    x:{grid:{display:false},ticks:{color:'#eaedf3',font:{size:10}}}}}});
+}
+
+function pred(d){
+  dc('pred');
+  const s=(d.predictions||[]).map(p=>p.score);
+  if(!s.length)return;
+  const bins=Array(20).fill(0);
+  s.forEach(v=>{bins[Math.min(19,Math.floor(v*20))]++;});
+  C.pred=new Chart(document.getElementById('predChart'),{type:'bar',data:{
+    labels:bins.map((_,i)=>(i/20).toFixed(2)),
+    datasets:[{data:bins,backgroundColor:bins.map((_,i)=>i>=10?'rgba(248,113,113,0.5)':'rgba(52,211,153,0.5)'),borderRadius:2}]},
+    options:{responsive:true,plugins:{legend:{display:false}},
+    scales:{y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4e5270'}},
+    x:{grid:{display:false},ticks:{color:'#4e5270',font:{size:9}}}}}});
+}
+
+function driftTbl(d){
+  const tb=document.getElementById('driftTbody');
+  const bc=t=>t?.includes('concept')?'badge-concept':t&&t!=='none'?'badge-drift':'badge-ok';
+  tb.innerHTML=(d.features||[]).map(f=>`<tr>
+    <td style="font-weight:500">${f.name}</td>
+    <td style="color:var(--text-secondary)">${f.type}</td>
+    <td><span class="badge ${bc(f.drift_type)}">${f.drift_type||'—'}</span></td>
+    <td><div class="effect-bar"><div class="effect-track"><div class="effect-fill" style="width:${Math.min(f.effect*100,100)}%"></div></div>
+      <span style="font-size:10px;color:var(--text-muted);min-width:36px">${f.effect?.toFixed(3)||'—'}</span></div></td>
+    <td style="font-size:11px;color:var(--text-secondary)">${f.mitigation||'—'}</td></tr>`).join('');
+  if(d.unshifted_count)tb.innerHTML+=`<tr><td colspan="5" style="text-align:center;color:var(--text-muted);font-style:italic;padding:16px">${d.unshifted_count} features — no significant drift</td></tr>`;
+}
+</script>
+</body>
+</html>

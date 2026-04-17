@@ -9,7 +9,7 @@ See individual modules for implementation details:
   adaptation.py      — Phase 3+4: temporal weighting, domain AUC, self-training
 """
 from __future__ import annotations
-import argparse, time, json
+import argparse, time
 import numpy as np
 import pandas as pd
 import joblib
@@ -145,8 +145,23 @@ def run_pipeline(train_path: str, test_path: str) -> None:
 
         # Phase 1: Per-feature diagnostics
         feat_types = classify_features(train_df, features)
-        diag, eff_med, any_concept = diagnose_features(
-            train_df, test_df, features, feat_types, y_train, month_train)
+
+        # Quick baseline model for feature importances (used for risk-weighted drift routing)
+        import lightgbm as lgb
+        x_quick = pd.DataFrame(index=train_df.index)
+        for col in features:
+            if feat_types[col] == "numeric":
+                x_quick[col] = pd.to_numeric(train_df[col], errors="coerce").fillna(0).astype(np.float32)
+            else:
+                x_quick[col] = (train_df[col].fillna("__MISSING__").astype(str).str.lower().str.strip()
+                                .astype("category").cat.codes.astype(np.float32))
+        quick_model = lgb.LGBMClassifier(**FIXED_PARAMS)
+        quick_model.fit(x_quick, y_train)
+        feat_importances = dict(zip(features, quick_model.feature_importances_.astype(float)))
+
+        diag, risk_med, any_concept = diagnose_features(
+            train_df, test_df, features, feat_types, y_train, month_train,
+            feature_importances=feat_importances)
         n_shifted = sum(1 for v in diag.values() if v.get("dist_shifted"))
         n_drop = sum(1 for v in diag.values() if v.get("mitigation") == "drop")
         print(f"[DIAG] Shifted: {n_shifted}/{len(features)}, "
@@ -204,21 +219,6 @@ def run_pipeline(train_path: str, test_path: str) -> None:
 
         # Predictions preview
         _print_predictions(pred_df)
-
-        # Dashboard JSON
-        dash = {"n_train": len(train_df), "n_test": len(test_df), "n_features": len(features),
-                "n_shifted": n_shifted, "domain_auc": round(domain_auc, 4),
-                "auprc_train": round(atr, 3), "auprc_test": round(ate, 3),
-                "runtime": round(time.time() - start_time, 1),
-                "features": [{"name": r["Column Name"], "type": r["Column Type"],
-                              "drift_type": r["Drift Description"].split(" drift")[0],
-                              "effect": round(diag.get(r["Column Name"], {}).get("effect", 0), 4),
-                              "mitigation": r["Drift Mitigation"]} for r in all_rows],
-                "unshifted_count": len(features) - len(all_rows),
-                "predictions": [{"id": str(row[ID_COL]), "score": round(row["probability_score"], 3)}
-                                for _, row in pred_df.head(8).iterrows()]}
-        with open("dashboard_data.json", "w") as f:
-            json.dump(dash, f, indent=2)
 
     except Exception as exc:
         import traceback; traceback.print_exc()
