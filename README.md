@@ -39,7 +39,6 @@ The pipeline produces all required outputs automatically:
 | Predictions preview | Console | Head of predicted probabilities |
 | `prediction.csv` | Root directory | CustomerID + probability_score for all test rows |
 | `model.joblib` | Root directory | Trained LightGBM model |
-| `dashboard_data.json` | Root directory | Data for the interactive dashboard |
 
 ---
 
