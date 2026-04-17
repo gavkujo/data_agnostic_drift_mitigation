@@ -1,4 +1,4 @@
-# Team <>
+# Team Hack Tuah
 
 ## NAISC 2026 | Adaptive Drift Intelligence Challenge
 
@@ -98,3 +98,15 @@ The dashboard includes two tabs:
 - pandas ≥ 2.0.0
 - numpy ≥ 1.24.0
 - joblib ≥ 1.3.0
+
+---
+
+### Team Members
+
+- Garv Sachdev
+- Yoong Hong Jun, Nicholas
+- Glynis Looi Xin Lin
+- Jan Chen Jie
+- Ronav Pattanaik
+
+---
