@@ -1,10 +1,10 @@
-# Team Hack Tuah
+# Adaptive Drift Intelligence | Team Hack Tuah
+> 🏆 **Winning Solution**: *Singtel x National AI Student Challenge 2026*  
+> 🏆 **Best-performing submission** across all teams nationally.
 
-## NAISC 2026 | Adaptive Drift Intelligence Challenge
+A schema-agnostic pipeline for robust churn prediction under distribution shift. Diagnoses drift per feature, applies targeted mitigation, and adapts the model to the test distribution through iterative self-training, all within a fixed model and 10-minute runtime constraint.
 
-Per-feature drift typing with iterative self-training for robust churn prediction under distribution shift.
-
-**Public dataset result: 0.893 AU-PRC** (baseline: 0.723, +23.5% relative improvement)
+**0.893 AU-PRC** on the public evaluation dataset — up from a baseline of 0.723 (+23.5% relative improvement).
 
 ---
 
